@@ -53,6 +53,8 @@ Workflow:
 4. A null match is normal. Unreleased tracks, edits, bootlegs, and heavy blends
    often do not fingerprint. Try a timestamp 30-60 seconds later, or use the
    description.
+5. When a match has a link, include it in the answer. It is a Spotify page when
+   one was found, otherwise YouTube, otherwise a Google search for the song.
 
 Only SoundCloud URLs are accepted. Do not send other links.
 """.strip()
@@ -139,7 +141,9 @@ async def identify_track(url: str, timestamp: str = "0") -> dict[str, Any]:
 
     `match` is null when nothing was recognized. That is normal for unreleased
     tracks, edits, and heavy blends. `hint` suggests another timestamp. `backend`
-    is which recognizer matched (shazam, audd, or acrcloud).
+    is which recognizer matched (shazam, audd, or acrcloud). `match.link` is a
+    Spotify URL when the recognizer has one, otherwise a YouTube URL, otherwise
+    a Google search for the artist and title. Include that link in the answer.
 
     Prefer get_set_info when the description already lists tracks.
     """
@@ -169,8 +173,9 @@ async def scan_tracklist(
     Samples inside one call run a few at a time, and `tracks` is always in
     chronological order. Consecutive samples of the same song collapse into one
     entry whose `at` is the first time it was heard. A song that leaves and comes
-    back stays as two entries. `unmatched_samples` counts moments with no
-    fingerprint; that is normal for blends and unreleased tracks.
+    back stays as two entries. Each track's `link` is Spotify, then YouTube, then
+    a Google search. `unmatched_samples` counts moments with no fingerprint; that
+    is normal for blends and unreleased tracks.
 
     Check get_set_info's description for an existing tracklist before scanning.
     """

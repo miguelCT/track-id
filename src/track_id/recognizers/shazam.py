@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from track_id.errors import RecognizerError
+from track_id.links import prefer_listen_link
 from track_id.models import Match
 from track_id.recognizers.http import TIMEOUT, clean
 
@@ -105,15 +106,45 @@ def parse_shazam(payload: dict[str, Any]) -> Match | None:
     if title is None:
         return None
     metadata = _section_metadata(track)
+    artist = clean(track.get("subtitle"))
     return Match(
-        artist=clean(track.get("subtitle")),
+        artist=artist,
         title=title,
         album=metadata.get("Album"),
         label=metadata.get("Label"),
         release_date=metadata.get("Released"),
-        link=clean(track.get("url")),
+        link=prefer_listen_link(artist=artist, title=title, urls=_provider_urls(track)),
         confidence=None,
     )
+
+
+def _provider_urls(track: dict[str, Any]) -> list[str]:
+    """Spotify and YouTube URLs from Shazam's hub. The Shazam page itself is not one."""
+
+    found: list[str] = []
+    hub = track.get("hub")
+    if isinstance(hub, dict):
+        _collect_urls(hub, found)
+    sections = track.get("sections")
+    if isinstance(sections, list):
+        for section in sections:
+            if isinstance(section, dict):
+                youtube = section.get("youtubeurl")
+                if isinstance(youtube, str) and youtube.strip():
+                    found.append(youtube.strip())
+    return found
+
+
+def _collect_urls(value: object, found: list[str]) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {"uri", "url"} and isinstance(item, str) and item.strip():
+                found.append(item.strip())
+            elif isinstance(item, dict | list):
+                _collect_urls(item, found)
+    elif isinstance(value, list):
+        for item in value:
+            _collect_urls(item, found)
 
 
 def _section_metadata(track: dict[str, Any]) -> dict[str, str]:

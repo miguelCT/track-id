@@ -8,6 +8,7 @@ from typing import Any
 
 from track_id.config import Settings
 from track_id.errors import RecognizerError
+from track_id.links import prefer_listen_link
 from track_id.models import Match
 from track_id.recognizers.http import clean, post_multipart
 
@@ -53,25 +54,29 @@ def parse_audd(payload: dict[str, Any]) -> Match | None:
     title = clean(result.get("title"))
     if title is None:
         return None
+    artist = clean(result.get("artist"))
     return Match(
-        artist=clean(result.get("artist")),
+        artist=artist,
         title=title,
         album=clean(result.get("album")),
         label=clean(result.get("label")),
         release_date=clean(result.get("release_date")),
-        link=_link(result),
+        link=prefer_listen_link(artist=artist, title=title, urls=_listen_urls(result)),
         confidence=None,
     )
 
 
-def _link(result: dict[str, Any]) -> str | None:
-    direct = clean(result.get("song_link"))
-    if direct:
-        return direct
+def _listen_urls(result: dict[str, Any]) -> list[str]:
+    found: list[str] = []
     spotify = result.get("spotify")
-    if not isinstance(spotify, dict):
-        return None
-    urls = spotify.get("external_urls")
-    if not isinstance(urls, dict):
-        return None
-    return clean(urls.get("spotify"))
+    if isinstance(spotify, dict):
+        urls = spotify.get("external_urls")
+        if isinstance(urls, dict):
+            direct = clean(urls.get("spotify"))
+            if direct:
+                found.append(direct)
+    for key in ("song_link", "youtube"):
+        value = clean(result.get(key))
+        if value:
+            found.append(value)
+    return found

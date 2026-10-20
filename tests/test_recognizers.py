@@ -66,7 +66,55 @@ def test_shazam_match_fixture() -> None:
     assert match.album == "Whenever You Need Somebody"
     assert match.label == "RCA"
     assert match.release_date == "1987"
-    assert match.link is not None and match.link.startswith("https://www.shazam.com/")
+    assert match.link == (
+        "https://www.google.com/search?q=Rick+Astley+Never+Gonna+Give+You+Up"
+    )
+
+
+def test_shazam_prefers_a_spotify_track_over_youtube() -> None:
+    payload = _load("shazam_match.json")
+    payload["track"]["hub"] = {
+        "providers": [
+            {
+                "type": "SPOTIFY",
+                "actions": [{"uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT"}],
+            },
+            {
+                "type": "YOUTUBEMUSIC",
+                "actions": [{"uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}],
+            },
+        ]
+    }
+    match = parse_shazam(payload)
+    assert match is not None
+    assert match.link == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+
+
+def test_shazam_uses_spotify_search_before_youtube_search() -> None:
+    payload = _load("shazam_match.json")
+    payload["track"]["hub"] = {
+        "providers": [
+            {"actions": [{"uri": "spotify:search:Memory%20U%20Zorza"}]},
+            {
+                "actions": [
+                    {"uri": "https://music.youtube.com/search?q=Memory+U+Zorza&feature=shazam"}
+                ]
+            },
+        ]
+    }
+    match = parse_shazam(payload)
+    assert match is not None
+    assert match.link == "https://open.spotify.com/search/Memory%20U%20Zorza"
+
+
+def test_shazam_uses_youtube_when_spotify_is_missing() -> None:
+    payload = _load("shazam_match.json")
+    payload["track"]["sections"].append(
+        {"type": "VIDEO", "youtubeurl": "https://youtu.be/dQw4w9WgXcQ"}
+    )
+    match = parse_shazam(payload)
+    assert match is not None
+    assert match.link == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 
 def test_shazam_nomatch_and_error_fixtures() -> None:
@@ -105,7 +153,7 @@ def test_audd_fixtures() -> None:
     match = parse_audd(_load("audd_match.json"))
     assert match is not None
     assert match.artist == "Rick Astley"
-    assert match.link == "https://lis.tn/NeverGonnaGiveYouUp"
+    assert match.link == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
     assert parse_audd(_load("audd_nomatch.json")) is None
     with pytest.raises(RecognizerError, match="invalid token"):
         parse_audd(_load("audd_error.json"))
@@ -161,6 +209,12 @@ def test_acr_fixtures() -> None:
     assert match.album == "Whenever You Need Somebody"
     assert match.confidence == 100
     assert match.link == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+    youtube_only = _load("acrcloud_match.json")
+    song = youtube_only["metadata"]["music"][0]
+    song["external_metadata"] = {"youtube": {"vid": "dQw4w9WgXcQ"}}
+    youtube_match = parse_acrcloud(youtube_only)
+    assert youtube_match is not None
+    assert youtube_match.link == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     assert parse_acrcloud(_load("acrcloud_nomatch.json")) is None
     with pytest.raises(RecognizerError, match="3001"):
         parse_acrcloud(_load("acrcloud_error.json"))

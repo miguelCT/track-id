@@ -302,7 +302,7 @@ AudD or ACRCloud is skipped when its credentials are missing, even if the name i
 
 `get_set_info(url)` returns `title`, `uploader`, `duration` (`m:ss` or `h:mm:ss`), `duration_seconds`, `permalink`, `description` (truncated at 4000 characters), and `preview_only`. Go+ tracks also include `playable_seconds` and a `note`. Only about 30 seconds of a Go+ preview can be read.
 
-`identify_track(url, timestamp="0")` accepts `42:10`, `1:02:30`, `2530`, or `2530.5`. It returns `set`, `at`, `match` (or null), `backend`, and `offset_seconds`. A null match is a normal result, not a tool error. `hint` suggests another timestamp. If the moment is within one clip of the end, the clip slides backward so it stays inside the audio.
+`identify_track(url, timestamp="0")` accepts `42:10`, `1:02:30`, `2530`, or `2530.5`. It returns `set`, `at`, `match` (or null), `backend`, and `offset_seconds`. A null match is a normal result, not a tool error. `hint` suggests another timestamp. If the moment is within one clip of the end, the clip slides backward so it stays inside the audio. `match.link` is a Spotify URL when the recognizer has one, otherwise YouTube, otherwise a Google search for the artist and title. The same order is used for each track in a scan.
 
 `scan_tracklist(url, start="0", end="", interval_seconds=150)` samples the half-open range `[start, end)`. An empty `end` means "through the playable audio". Intervals below 60 seconds are raised to 60. The reply includes `tracks` (chronological, consecutive duplicates collapsed), `samples`, `unmatched_samples`, `scanned`, `interval_seconds`, `stop_reason` (`complete`, `sample_limit`, or `time_budget`), and `more_to_scan_from` (the next timestamp to pass as `start`, or null).
 

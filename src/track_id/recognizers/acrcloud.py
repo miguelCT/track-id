@@ -16,6 +16,7 @@ from typing import Any
 
 from track_id.config import Settings
 from track_id.errors import RecognizerError
+from track_id.links import prefer_listen_link
 from track_id.models import Match
 from track_id.recognizers.http import clean, post_multipart
 
@@ -82,13 +83,14 @@ def parse_acrcloud(payload: dict[str, Any]) -> Match | None:
     title = clean(song.get("title"))
     if title is None:
         return None
+    artist = _artists(song)
     return Match(
-        artist=_artists(song),
+        artist=artist,
         title=title,
         album=_album(song),
         label=clean(song.get("label")),
         release_date=clean(song.get("release_date")),
-        link=_spotify_link(song),
+        link=prefer_listen_link(artist=artist, title=title, urls=_listen_urls(song)),
         confidence=_score(song.get("score")),
     )
 
@@ -114,20 +116,23 @@ def _album(song: dict[str, Any]) -> str | None:
     return clean(album.get("name"))
 
 
-def _spotify_link(song: dict[str, Any]) -> str | None:
+def _listen_urls(song: dict[str, Any]) -> list[str]:
     external = song.get("external_metadata")
     if not isinstance(external, dict):
-        return None
+        return []
+    found: list[str] = []
     spotify = external.get("spotify")
-    if not isinstance(spotify, dict):
-        return None
-    track = spotify.get("track")
-    if not isinstance(track, dict):
-        return None
-    track_id = clean(track.get("id"))
-    if track_id is None:
-        return None
-    return f"https://open.spotify.com/track/{track_id}"
+    if isinstance(spotify, dict):
+        track = spotify.get("track")
+        track_id = clean(track.get("id")) if isinstance(track, dict) else None
+        if track_id:
+            found.append(f"https://open.spotify.com/track/{track_id}")
+    youtube = external.get("youtube")
+    if isinstance(youtube, dict):
+        video_id = clean(youtube.get("vid"))
+        if video_id:
+            found.append(f"https://www.youtube.com/watch?v={video_id}")
+    return found
 
 
 def _score(value: object) -> float | None:
