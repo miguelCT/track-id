@@ -17,6 +17,7 @@ from track_id.audio import (
 from track_id.config import Settings
 from track_id.errors import StreamExpiredError, UserInputError
 from track_id.models import Match, ResolvedTrack, SampleHit
+from track_id.present import present_identify, present_scan
 from track_id.recognizers import recognize_file
 from track_id.timestamps import format_timestamp, parse_timestamp
 
@@ -140,7 +141,7 @@ async def identify_moment(url: str, timestamp: str, settings: Settings) -> dict[
             }
             if resolved.preview_only:
                 payload["preview_only"] = True
-            return payload
+            return present_identify(payload)
 
     payload = {
         "set": resolved.title,
@@ -153,7 +154,7 @@ async def identify_moment(url: str, timestamp: str, settings: Settings) -> dict[
     }
     if resolved.preview_only:
         payload["preview_only"] = True
-    return payload
+    return present_identify(payload)
 
 
 async def build_tracklist(
@@ -241,7 +242,7 @@ async def build_tracklist(
             }
         },
     )
-    return payload
+    return present_scan(payload)
 
 
 async def _clip_and_recognize(
@@ -326,9 +327,7 @@ async def _run_samples(
                 "sample failed",
                 extra={"event": {"at": format_timestamp(ts), "error_type": type(exc).__name__}},
             )
-            results[index] = SampleHit(
-                at=ts, match=None, backend=None, error=type(exc).__name__
-            )
+            results[index] = SampleHit(at=ts, match=None, backend=None, error=type(exc).__name__)
 
     try:
         while started < len(plan) or pending:

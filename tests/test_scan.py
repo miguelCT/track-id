@@ -65,6 +65,8 @@ async def test_chunking_stops_at_the_sample_cap_and_reports_where_to_resume() ->
     assert result["interval_seconds"] == 60
     assert result["more_to_scan_from"] == "30:00"
     assert result["stop_reason"] == "sample_limit"
+    assert "Continue from 30:00." in str(result["summary"])
+    assert "<details>" in str(result["details"])
     assert result["scanned"] == "0:00 – 29:00"
     assert result["tracks"][-1]["at"] == "29:00"
 
@@ -233,6 +235,8 @@ async def test_identify_retries_later_and_reports_the_offset(
     assert result["at"] == "0:20"
     assert result["backend"] == "audd"
     assert result["match"]["title"] == "Song"  # type: ignore[index]
+    assert result["summary"] == "0:20 — A — Song"
+    assert "Matched 20s after" in str(result["details"])
 
 
 async def test_identify_can_disable_the_retry(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -250,7 +254,9 @@ async def test_identify_can_disable_the_retry(monkeypatch: pytest.MonkeyPatch) -
     result = await identify_moment(URL, "1:00", make_settings(retry_offset_seconds=0))
     assert seen == [60]
     assert result["match"] is None
+    assert result["summary"] == "1:00 — no match"
     assert "30" in str(result["hint"]) or "later" in str(result["hint"])
+    assert "later" in str(result["details"])
 
 
 async def test_identify_shifts_the_clip_near_the_end(monkeypatch: pytest.MonkeyPatch) -> None:
