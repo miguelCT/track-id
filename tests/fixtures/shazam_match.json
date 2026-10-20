@@ -1,0 +1,29 @@
+{
+  "matches": [
+    {"id": "54909330", "offset": 10.2, "timeskew": 0.0001, "frequencyskew": 0}
+  ],
+  "track": {
+    "layout": "5",
+    "type": "MUSIC",
+    "key": "54909330",
+    "title": "Never Gonna Give You Up",
+    "subtitle": "Rick Astley",
+    "url": "https://www.shazam.com/track/54909330/never-gonna-give-you-up",
+    "sections": [
+      {
+        "type": "SONG",
+        "metadata": [
+          {"title": "Album", "text": "Whenever You Need Somebody"},
+          {"title": "Label", "text": "RCA"},
+          {"title": "Released", "text": "1987"}
+        ]
+      },
+      {
+        "type": "ARTIST",
+        "metadata": [
+          {"title": "Album", "text": "should not override"}
+        ]
+      }
+    ]
+  }
+}

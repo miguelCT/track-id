@@ -1,0 +1,19 @@
+{
+  "status": {"msg": "Success", "code": 0, "version": "1.0"},
+  "metadata": {
+    "music": [
+      {
+        "title": "Never Gonna Give You Up",
+        "artists": [{"name": "Rick Astley"}],
+        "album": {"name": "Whenever You Need Somebody"},
+        "label": "RCA",
+        "release_date": "1987-11-12",
+        "score": 100,
+        "external_metadata": {
+          "spotify": {"track": {"id": "4cOdK2wGLETKBW3PvgPWqT", "name": "Never Gonna Give You Up"}}
+        }
+      }
+    ]
+  },
+  "result_type": 0
+}

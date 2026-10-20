@@ -1,0 +1,12 @@
+# Exact pins for a reproducible image.
+# yt-dlp and shazamio break when SoundCloud or Shazam change their sites.
+# Bump them on purpose (do not let a lockfile hide the change):
+#   pip install -U yt-dlp
+#   pip install -U shazamio
+# Then copy the new versions into this file and redeploy.
+# shazamio 0.8.1 pulls shazamio-core==1.1.2, which has manylinux wheels for
+# linux/amd64 and linux/arm64. Keep the base image glibc-based (Debian), not Alpine.
+httpx==0.28.1
+mcp==2.3.0
+shazamio==0.8.1
+yt-dlp==2026.8.19
