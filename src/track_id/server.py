@@ -44,14 +44,13 @@ INSTRUCTIONS = """
 This server identifies music inside a SoundCloud track or a DJ mix uploaded as one audio file.
 
 How to answer the user:
-- The whole reply is `summary`, then `details` pasted unchanged.
-- `summary` is the point: time, artist, title, and the listen link (Spotify,
-  otherwise YouTube, otherwise a Google search). A scan is one block per song.
-- `details` is an HTML <details> block. Paste it as HTML, not inside a code
-  fence, so album, label, release date, backend, and scan stats stay collapsed.
-  Do not repeat those fields outside it.
-- If `details` is empty, omit it. If the result has `error`, reply with that
-  sentence only.
+- Paste `reply` exactly. Do not wrap it in a code block and do not add a preamble.
+- `reply` is markdown: the cover image when one was found, the song title linked
+  to Spotify (otherwise YouTube, otherwise a Google search), then the artist and
+  time on one line. A scan is one block per song.
+- Do not add album, label, release date, backend, or sample counts unless the
+  user asks. Those stay in the other fields.
+- If the result has `error`, reply with that sentence only.
 - If the user asked for the tracklist written in the description, show
   `description` in full. That text is the answer, not extra metadata.
 
@@ -62,7 +61,7 @@ Workflow:
 2. Call identify_track for one moment ("what is playing at 42:10").
 3. Call scan_tracklist to build a tracklist. Each call samples only a chunk.
    When more_to_scan_from is set, call scan_tracklist again with start set to
-   that value until more_to_scan_from is null. The summary already says where to continue.
+   that value until more_to_scan_from is null. Paste each chunk's `reply` in order.
 4. A null match is normal. Unreleased tracks, edits, bootlegs, and heavy blends
    often do not fingerprint. Try a timestamp 30-60 seconds later, or use the
    description.
@@ -122,9 +121,9 @@ def make_http_app(settings: Settings) -> Starlette:
 async def get_set_info(url: str) -> dict[str, Any]:
     """Metadata for one SoundCloud track or DJ mix.
 
-    Answer with `summary` (title, uploader, duration), then paste `details`
-    unchanged. `details` collapses the description and any preview note. If the
-    user asked for the tracklist in the description, show `description` in full.
+    Paste `reply` exactly. It is the title, linked to the set, plus the uploader
+    and duration. If the user asked for the tracklist in the description, show
+    `description` in full as well.
 
     Call this before identify_track or scan_tracklist. Read `description` first:
     if it already contains a tracklist, use that and do not spend time on audio
@@ -144,9 +143,9 @@ async def get_set_info(url: str) -> dict[str, Any]:
 async def identify_track(url: str, timestamp: str = "0") -> dict[str, Any]:
     """Identify the song playing at one moment in a SoundCloud track or DJ mix.
 
-    Answer with `summary` only, then paste `details` unchanged. `summary` is the
-    time, artist, title, and listen link. `details` hides album, label, release
-    date, and which recognizer matched.
+    Paste `reply` exactly. It shows the cover when Shazam (or a paid fallback)
+    returned one, then the title as the listen link, then the artist and time.
+    Leave album, label, release date, and `backend` out unless the user asks.
 
     `timestamp` accepts "42:10", "1:02:30", "2530", or "2530.5". 0 is the start.
     Negative timestamps and timestamps past the end return an error object.
@@ -161,8 +160,9 @@ async def identify_track(url: str, timestamp: str = "0") -> dict[str, Any]:
     `match` is null when nothing was recognized. That is normal for unreleased
     tracks, edits, and heavy blends. `hint` suggests another timestamp. `backend`
     is which recognizer matched (shazam, audd, or acrcloud). `match.link`, already
-    included in `summary`, is a Spotify URL when the recognizer has one, otherwise
-    a YouTube URL, otherwise a Google search for the artist and title.
+    used in `reply`, is a Spotify URL when the recognizer has one, otherwise a
+    YouTube URL, otherwise a Google search for the artist and title. `match.cover`
+    is the artwork URL, when the recognizer sent one.
 
     Prefer get_set_info when the description already lists tracks.
     """
@@ -178,10 +178,10 @@ async def scan_tracklist(
 ) -> dict[str, Any]:
     """Sample a SoundCloud mix and return a deduplicated tracklist for that range.
 
-    Answer with `summary`, then paste `details` unchanged. `summary` is one block
-    per song (time, artist, title, link) and, when the chunk is unfinished,
-    "Continue from …". `details` hides sample counts, the interval, and album or
-    label. Keep calling while `more_to_scan_from` is set.
+    Paste `reply` exactly: one markdown block per song, then "Continue from …"
+    when this chunk is unfinished. Keep calling while `more_to_scan_from` is set
+    and paste the replies in order. Leave sample counts and album metadata out
+    unless the user asks.
 
     Samples the half-open range [start, end). Leave `end` empty to scan until the
     audio ends. `start` and `end` use the same timestamp formats as identify_track.
@@ -198,7 +198,7 @@ async def scan_tracklist(
     chronological order. Consecutive samples of the same song collapse into one
     entry whose `at` is the first time it was heard. A song that leaves and comes
     back stays as two entries. Each track's `link` is Spotify, then YouTube, then
-    a Google search, and is already in `summary`. `unmatched_samples` counts
+    a Google search, and is already the link in `reply`. `unmatched_samples` counts
     moments with no fingerprint; that is normal for blends and unreleased tracks.
 
     Check get_set_info's description for an existing tracklist before scanning.

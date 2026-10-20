@@ -41,3 +41,14 @@ def clean(value: object) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def https_image(value: object) -> str | None:
+    """An https image URL that is safe to place inside a markdown image."""
+
+    text = clean(value)
+    if text is None or not text.startswith("https://"):
+        return None
+    if any(char in text for char in " \t\r\n()<>\"'\\"):
+        return None
+    return text

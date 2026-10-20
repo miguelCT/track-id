@@ -61,6 +61,7 @@ def collapse_tracks(hits: list[SampleHit]) -> list[dict[str, object]]:
                 "label": match.label,
                 "release_date": match.release_date,
                 "link": match.link,
+                "cover": match.cover,
                 "backend": hit.backend,
             }
         )

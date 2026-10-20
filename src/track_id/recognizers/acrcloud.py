@@ -18,7 +18,7 @@ from track_id.config import Settings
 from track_id.errors import RecognizerError
 from track_id.links import prefer_listen_link
 from track_id.models import Match
-from track_id.recognizers.http import clean, post_multipart
+from track_id.recognizers.http import clean, https_image, post_multipart
 
 
 class ACRCloudRecognizer:
@@ -91,6 +91,7 @@ def parse_acrcloud(payload: dict[str, Any]) -> Match | None:
         label=clean(song.get("label")),
         release_date=clean(song.get("release_date")),
         link=prefer_listen_link(artist=artist, title=title, urls=_listen_urls(song)),
+        cover=_cover_url(song),
         confidence=_score(song.get("score")),
     )
 
@@ -114,6 +115,38 @@ def _album(song: dict[str, Any]) -> str | None:
     if not isinstance(album, dict):
         return None
     return clean(album.get("name"))
+
+
+def _cover_url(song: dict[str, Any]) -> str | None:
+    external = song.get("external_metadata")
+    if not isinstance(external, dict):
+        return None
+    spotify = external.get("spotify")
+    if isinstance(spotify, dict):
+        album = spotify.get("album")
+        images = album.get("images") if isinstance(album, dict) else None
+        if isinstance(images, list):
+            best: tuple[int, str] | None = None
+            for image in images:
+                if not isinstance(image, dict):
+                    continue
+                url = https_image(image.get("url"))
+                if url is None:
+                    continue
+                width = image.get("width")
+                size = width if isinstance(width, int) else 0
+                if best is None or size > best[0]:
+                    best = (size, url)
+            if best is not None:
+                return best[1]
+    deezer = external.get("deezer")
+    album = deezer.get("album") if isinstance(deezer, dict) else None
+    if isinstance(album, dict):
+        for key in ("cover_xl", "cover_big", "cover_medium", "cover"):
+            url = https_image(album.get(key))
+            if url:
+                return url
+    return None
 
 
 def _listen_urls(song: dict[str, Any]) -> list[str]:

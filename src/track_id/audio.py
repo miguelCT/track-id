@@ -88,9 +88,7 @@ def validate_soundcloud_url(url: object) -> str:
     if parts.port not in (None, 443):
         raise UserInputError("Only the standard https port (443) is allowed.")
     if parts.path in ("", "/"):
-        raise UserInputError(
-            "That URL has no track path. Paste a link to a specific track or mix."
-        )
+        raise UserInputError("That URL has no track path. Paste a link to a specific track or mix.")
     return stripped
 
 

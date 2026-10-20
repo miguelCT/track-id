@@ -66,9 +66,7 @@ def test_shazam_match_fixture() -> None:
     assert match.album == "Whenever You Need Somebody"
     assert match.label == "RCA"
     assert match.release_date == "1987"
-    assert match.link == (
-        "https://www.google.com/search?q=Rick+Astley+Never+Gonna+Give+You+Up"
-    )
+    assert match.link == ("https://www.google.com/search?q=Rick+Astley+Never+Gonna+Give+You+Up")
 
 
 def test_shazam_prefers_a_spotify_track_over_youtube() -> None:
@@ -115,6 +113,21 @@ def test_shazam_uses_youtube_when_spotify_is_missing() -> None:
     match = parse_shazam(payload)
     assert match is not None
     assert match.link == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+
+def test_shazam_keeps_the_highest_resolution_cover() -> None:
+    payload = _load("shazam_match.json")
+    payload["track"]["images"] = {
+        "coverart": "https://is1-ssl.mzstatic.com/image/thumb/small.jpg",
+        "coverarthq": "https://is1-ssl.mzstatic.com/image/thumb/large.jpg",
+    }
+    match = parse_shazam(payload)
+    assert match is not None
+    assert match.cover == "https://is1-ssl.mzstatic.com/image/thumb/large.jpg"
+    payload["track"]["images"] = {"coverarthq": "https://cdn.example/a(b).jpg"}
+    broken = parse_shazam(payload)
+    assert broken is not None
+    assert broken.cover is None
 
 
 def test_shazam_nomatch_and_error_fixtures() -> None:
@@ -167,6 +180,20 @@ def test_audd_uses_spotify_link_when_song_link_is_missing() -> None:
     assert match.link == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
 
 
+def test_audd_uses_the_largest_spotify_cover() -> None:
+    payload = _load("audd_match.json")
+    payload["result"]["spotify"]["album"] = {
+        "images": [
+            {"url": "https://i.scdn.co/image/small", "width": 64},
+            {"url": "https://i.scdn.co/image/large", "width": 640},
+            {"url": "http://i.scdn.co/image/insecure", "width": 1000},
+        ]
+    }
+    match = parse_audd(payload)
+    assert match is not None
+    assert match.cover == "https://i.scdn.co/image/large"
+
+
 async def test_audd_posts_the_clip_and_token(tmp_path: Path) -> None:
     seen: dict[str, bytes] = {}
 
@@ -196,9 +223,7 @@ async def test_audd_http_error(tmp_path: Path) -> None:
 def test_acr_signature_matches_the_documented_string() -> None:
     signature = build_signature("access-key", "access-secret", "1700000000")
     message = b"POST\n/v1/identify\naccess-key\naudio\n1\n1700000000"
-    expected = base64.b64encode(
-        hmac.new(b"access-secret", message, hashlib.sha1).digest()
-    ).decode()
+    expected = base64.b64encode(hmac.new(b"access-secret", message, hashlib.sha1).digest()).decode()
     assert signature == expected
 
 
@@ -215,6 +240,17 @@ def test_acr_fixtures() -> None:
     youtube_match = parse_acrcloud(youtube_only)
     assert youtube_match is not None
     assert youtube_match.link == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    assert match.cover is None
+    song["external_metadata"] = {
+        "deezer": {
+            "album": {
+                "cover_xl": "https://cdn-images.dzcdn.net/images/cover/abc/1000x1000-000000-80-0-0.jpg"
+            }
+        }
+    }
+    covered = parse_acrcloud(youtube_only)
+    assert covered is not None
+    assert covered.cover.endswith("1000x1000-000000-80-0-0.jpg")
     assert parse_acrcloud(_load("acrcloud_nomatch.json")) is None
     with pytest.raises(RecognizerError, match="3001"):
         parse_acrcloud(_load("acrcloud_error.json"))

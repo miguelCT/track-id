@@ -16,6 +16,7 @@ class Match:
     label: str | None = None
     release_date: str | None = None
     link: str | None = None
+    cover: str | None = None
     confidence: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -26,6 +27,7 @@ class Match:
             "label": self.label,
             "release_date": self.release_date,
             "link": self.link,
+            "cover": self.cover,
             "confidence": self.confidence,
         }
 

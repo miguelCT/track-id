@@ -51,9 +51,10 @@ async def test_get_set_info_returns_metadata_and_description(
     monkeypatch.setattr("track_id.server.resolve_track", fake_resolve)
     result = await get_set_info(URL)
     assert result["title"] == "Closing Set"
-    assert result["summary"] == "Closing Set — DJ Example — 1:02:30"
-    assert "<details>" in result["details"]
-    assert "Artist - Song" in result["details"]
+    assert result["reply"] == (
+        "**[Closing Set](https://soundcloud.com/artist/some-set)**\nDJ Example · 1:02:30"
+    )
+    assert "Artist - Song" not in result["reply"]
     assert result["uploader"] == "DJ Example"
     assert result["duration"] == "1:02:30"
     assert result["duration_seconds"] == 3750
@@ -115,8 +116,7 @@ async def test_identify_and_scan_tools_return_the_service_payload(
     identified = await identify_track(URL, "0:30")
     assert identified["backend"] == "shazam"
     assert identified["match"]["title"] == "Song"
-    assert identified["summary"] == "0:30 — A — Song"
-    assert "<details>" in identified["details"]
+    assert identified["reply"] == "**Song**\nA · 0:30"
     scanned = await scan_tracklist(URL, "0", "1:00:00", 90)
     assert scanned["more_to_scan_from"] == "5:00"
     assert scanned["tracks"][0]["title"] == "Song"
@@ -135,11 +135,10 @@ async def test_in_process_client_lists_tools_with_useful_descriptions() -> None:
     assert "tracklist" in by_name["get_set_info"].lower()
     assert "more_to_scan_from" in by_name["scan_tracklist"]
     assert "42:10" in by_name["identify_track"]
-    assert "summary" in by_name["identify_track"]
-    assert "details" in by_name["scan_tracklist"]
-    assert "summary" in by_name["get_set_info"]
-    assert "summary" in INSTRUCTIONS
-    assert "<details>" in INSTRUCTIONS
+    assert "reply" in by_name["identify_track"]
+    assert "reply" in by_name["scan_tracklist"]
+    assert "reply" in by_name["get_set_info"]
+    assert "Paste `reply` exactly" in INSTRUCTIONS
     assert "check the description" in INSTRUCTIONS.lower() or "description" in INSTRUCTIONS.lower()
 
 

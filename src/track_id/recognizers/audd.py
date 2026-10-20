@@ -10,7 +10,7 @@ from track_id.config import Settings
 from track_id.errors import RecognizerError
 from track_id.links import prefer_listen_link
 from track_id.models import Match
-from track_id.recognizers.http import clean, post_multipart
+from track_id.recognizers.http import clean, https_image, post_multipart
 
 AUDD_URL = "https://api.audd.io/"
 
@@ -62,8 +62,33 @@ def parse_audd(payload: dict[str, Any]) -> Match | None:
         label=clean(result.get("label")),
         release_date=clean(result.get("release_date")),
         link=prefer_listen_link(artist=artist, title=title, urls=_listen_urls(result)),
+        cover=_spotify_cover(result),
         confidence=None,
     )
+
+
+def _spotify_cover(result: dict[str, Any]) -> str | None:
+    spotify = result.get("spotify")
+    if not isinstance(spotify, dict):
+        return None
+    album = spotify.get("album")
+    if not isinstance(album, dict):
+        return None
+    images = album.get("images")
+    if not isinstance(images, list):
+        return None
+    best: tuple[int, str] | None = None
+    for image in images:
+        if not isinstance(image, dict):
+            continue
+        url = https_image(image.get("url"))
+        if url is None:
+            continue
+        width = image.get("width")
+        size = width if isinstance(width, int) else 0
+        if best is None or size > best[0]:
+            best = (size, url)
+    return None if best is None else best[1]
 
 
 def _listen_urls(result: dict[str, Any]) -> list[str]:

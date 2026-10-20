@@ -16,7 +16,7 @@ import httpx
 from track_id.errors import RecognizerError
 from track_id.links import prefer_listen_link
 from track_id.models import Match
-from track_id.recognizers.http import TIMEOUT, clean
+from track_id.recognizers.http import TIMEOUT, clean, https_image
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +114,24 @@ def parse_shazam(payload: dict[str, Any]) -> Match | None:
         label=metadata.get("Label"),
         release_date=metadata.get("Released"),
         link=prefer_listen_link(artist=artist, title=title, urls=_provider_urls(track)),
+        cover=_cover_url(track),
         confidence=None,
     )
+
+
+def _cover_url(track: dict[str, Any]) -> str | None:
+    """Square artwork from Shazam. The high-resolution cover wins."""
+
+    images = track.get("images")
+    if isinstance(images, dict):
+        for key in ("coverarthq", "coverart", "background"):
+            url = https_image(images.get(key))
+            if url:
+                return url
+    share = track.get("share")
+    if isinstance(share, dict):
+        return https_image(share.get("image"))
+    return None
 
 
 def _provider_urls(track: dict[str, Any]) -> list[str]:

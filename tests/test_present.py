@@ -1,11 +1,14 @@
-"""Concise summaries and collapsed detail blocks."""
+"""Markdown replies: cover, linked title, artist and time."""
 
 from __future__ import annotations
 
-from track_id.present import collapsed, present_identify, present_scan, present_set
+from track_id.present import present_identify, present_scan, present_set, song_card
+
+COVER = "https://is1-ssl.mzstatic.com/image/thumb/cover.jpg"
+LINK = "https://open.spotify.com/track/abc"
 
 
-def test_identify_summary_is_the_song_and_the_link() -> None:
+def test_identify_reply_is_the_cover_title_and_one_line() -> None:
     shown = present_identify(
         {
             "set": "Mix Series 52",
@@ -16,53 +19,38 @@ def test_identify_summary_is_the_song_and_the_link() -> None:
                 "album": "Bang Up for It 2",
                 "label": "Riot Recordings",
                 "release_date": "2011",
-                "link": "https://open.spotify.com/track/abc",
+                "link": LINK,
+                "cover": COVER,
                 "confidence": None,
             },
             "backend": "shazam",
             "offset_seconds": 0,
         }
     )
-    assert shown["summary"] == (
-        "23:50 — Ilogik — I Just Can't Stop\nhttps://open.spotify.com/track/abc"
+    assert shown["reply"] == (
+        f"![I Just Can't Stop]({COVER})\n\n**[I Just Can't Stop]({LINK})**\nIlogik · 23:50"
     )
-    assert shown["details"].startswith("<details>")
-    assert "<summary>Details</summary>" in shown["details"]
-    assert "Bang Up for It 2" in shown["details"]
-    assert "Riot Recordings" in shown["details"]
-    assert "2011" in shown["details"]
-    assert "shazam" in shown["details"]
-    assert "spotify.com" not in shown["details"]
-    assert shown["match"]["title"] == "I Just Can't Stop"
+    assert "Bang Up for It 2" not in shown["reply"]
+    assert "shazam" not in shown["reply"]
+    assert "details" not in shown
+    assert shown["match"]["album"] == "Bang Up for It 2"
 
 
-def test_identify_details_escape_html_and_note_a_later_match() -> None:
-    shown = present_identify(
-        {
-            "set": "A & B",
-            "at": "1:00",
-            "match": {
-                "artist": "A & B",
-                "title": "Song",
-                "album": "<b>LP",
-                "label": None,
-                "release_date": None,
-                "link": "https://www.youtube.com/watch?v=abc",
-                "confidence": 0.5,
-            },
-            "backend": "audd",
-            "offset_seconds": 20,
-        }
+def test_reply_escapes_title_characters_and_skips_a_broken_cover() -> None:
+    card = song_card(
+        title="A * B [Radio Edit]",
+        artist="A & B",
+        at="1:00",
+        link="https://www.youtube.com/watch?v=abc",
+        cover="https://cdn.example/a(b).jpg",
     )
-    assert shown["summary"].startswith("1:00 — A & B — Song")
-    assert "<b>" not in shown["details"]
-    assert "&lt;b&gt;LP" in shown["details"]
-    assert "A &amp; B" in shown["details"]
-    assert "Matched 20s after" in shown["details"]
-    assert "0.5" in shown["details"]
+    assert card == (
+        "**[A \\* B \\[Radio Edit\\]](https://www.youtube.com/watch?v=abc)**\nA & B · 1:00"
+    )
+    assert "a(b).jpg" not in card
 
 
-def test_no_match_summary_stays_one_line() -> None:
+def test_no_match_reply_stays_one_line() -> None:
     shown = present_identify(
         {
             "set": "Closing Set",
@@ -73,12 +61,12 @@ def test_no_match_summary_stays_one_line() -> None:
             "hint": "No match at this moment. Try around 46:25.",
         }
     )
-    assert shown["summary"] == "45:40 — no match"
-    assert "Try around 46:25" in shown["details"]
-    assert "Album" not in shown["details"]
+    assert shown["reply"] == "45:40 — no match"
+    assert "Try around" not in shown["reply"]
+    assert shown["hint"].startswith("No match")
 
 
-def test_scan_summary_lists_songs_and_where_to_continue() -> None:
+def test_scan_reply_lists_songs_and_where_to_continue() -> None:
     shown = present_scan(
         {
             "set": "Closing Set",
@@ -94,39 +82,31 @@ def test_scan_summary_lists_songs_and_where_to_continue() -> None:
                     "artist": "A",
                     "title": "Song",
                     "album": "LP",
-                    "label": None,
-                    "release_date": "2011",
                     "link": "https://open.spotify.com/track/1",
-                    "backend": "shazam",
+                    "cover": COVER,
                 },
                 {
                     "at": "2:30",
                     "artist": None,
                     "title": "Tune",
-                    "album": None,
-                    "label": None,
-                    "release_date": None,
                     "link": "https://www.google.com/search?q=Tune",
-                    "backend": "shazam",
+                    "cover": None,
                 },
             ],
         }
     )
-    assert shown["summary"] == (
-        "0:00 — A — Song\n"
-        "https://open.spotify.com/track/1\n"
+    assert shown["reply"] == (
+        f"![Song]({COVER})\n"
         "\n"
-        "2:30 — Tune\n"
-        "https://www.google.com/search?q=Tune\n"
+        "**[Song](https://open.spotify.com/track/1)**\n"
+        "A · 0:00\n"
+        "\n"
+        "**[Tune](https://www.google.com/search?q=Tune)**\n"
+        "2:30\n"
         "\n"
         "Continue from 5:00."
     )
-    assert "album LP" in shown["details"]
-    assert "released 2011" in shown["details"]
-    assert "2:30 — Tune" not in shown["details"]
-    assert "2 (1 with no match)" in shown["details"]
-    assert "Interval: 2:30" in shown["details"]
-    assert "sample limit" in shown["details"]
+    assert "album" not in shown["reply"].lower()
     assert shown["more_to_scan_from"] == "5:00"
 
 
@@ -143,12 +123,12 @@ def test_scan_with_nothing_recognized() -> None:
             "tracks": [],
         }
     )
-    assert empty["summary"] == "No matches."
+    assert empty["reply"] == "No matches."
     partial = present_scan({**empty, "more_to_scan_from": "5:00", "tracks": []})
-    assert partial["summary"] == "No matches in this chunk.\n\nContinue from 5:00."
+    assert partial["reply"] == "No matches in this chunk.\n\nContinue from 5:00."
 
 
-def test_set_summary_is_title_uploader_and_duration() -> None:
+def test_set_reply_links_the_title() -> None:
     shown = present_set(
         {
             "title": "Closing Set",
@@ -159,8 +139,10 @@ def test_set_summary_is_title_uploader_and_duration() -> None:
             "preview_only": False,
         }
     )
-    assert shown["summary"] == "Closing Set — DJ Example — 1:02:30"
-    assert "<pre>01. Artist - Song\n02. Other - Tune</pre>" in shown["details"]
+    assert shown["reply"] == (
+        "**[Closing Set](https://soundcloud.com/artist/some-set)**\nDJ Example · 1:02:30"
+    )
+    assert "Artist - Song" not in shown["reply"]
     assert shown["description"].startswith("01. Artist")
 
     preview = present_set(
@@ -175,12 +157,6 @@ def test_set_summary_is_title_uploader_and_duration() -> None:
             "note": "Only a short preview.",
         }
     )
-    assert preview["summary"] == "Go+ Track — Someone — 3:10 (preview only)"
-    assert "Playable audio: 0:30" in preview["details"]
-    assert "Only a short preview." in preview["details"]
-    assert "<pre>" not in preview["details"]
-
-
-def test_collapsed_block_is_omitted_when_there_is_nothing_to_hide() -> None:
-    assert collapsed([]) == ""
-    assert collapsed([("Album", None), ("Label", "  ")]) == ""
+    assert preview["reply"] == (
+        "**[Go+ Track](https://soundcloud.com/a/b)**\nSomeone · 3:10 · preview only"
+    )
