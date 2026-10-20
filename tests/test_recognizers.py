@@ -22,7 +22,12 @@ from track_id.recognizers.acrcloud import (
     parse_acrcloud,
 )
 from track_id.recognizers.audd import AudDRecognizer, parse_audd
-from track_id.recognizers.shazam import ShazamRecognizer, parse_shazam
+from track_id.recognizers.shazam import (
+    SHAZAM_SEGMENT_SECONDS,
+    ShazamRecognizer,
+    _default_client,
+    parse_shazam,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -88,6 +93,12 @@ async def test_shazam_recognizer_wraps_client_failures() -> None:
 
     with pytest.raises(RecognizerError, match="RuntimeError"):
         await ShazamRecognizer(client=Boom()).recognize("clip.mp3")
+
+
+def test_shazam_signature_uses_twelve_seconds() -> None:
+    client = _default_client()
+    assert client.core_recognizer.segment_duration_seconds == SHAZAM_SEGMENT_SECONDS
+    assert SHAZAM_SEGMENT_SECONDS == 12
 
 
 def test_audd_fixtures() -> None:

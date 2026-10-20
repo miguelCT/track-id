@@ -19,6 +19,13 @@ from track_id.recognizers.http import TIMEOUT, clean
 
 logger = logging.getLogger(__name__)
 
+# shazamio-core fingerprints one slice, taken from the middle when the file is
+# longer. Its default is 10 seconds. On the mix clips tried here, that slice
+# missed and 12 seconds matched; 16 seconds and longer matched nothing, because
+# a blend dilutes the signature. 12 is also what the library's older Python
+# signer uses.
+SHAZAM_SEGMENT_SECONDS = 12
+
 
 class HttpxShazamClient:
     """The small slice of shazamio's HTTP client interface that `recognize` uses."""
@@ -133,4 +140,7 @@ def _section_metadata(track: dict[str, Any]) -> dict[str, str]:
 def _default_client() -> Any:
     from shazamio import Shazam
 
-    return Shazam(http_client=HttpxShazamClient())
+    return Shazam(
+        http_client=HttpxShazamClient(),
+        segment_duration_seconds=SHAZAM_SEGMENT_SECONDS,
+    )
