@@ -23,6 +23,7 @@ import sys
 from collections.abc import Awaitable
 from typing import Any
 
+from mcp.server.apps import APP_MIME_TYPE, Apps, ResourceCsp
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
@@ -37,6 +38,7 @@ from track_id.log import configure_logging, log_event, uvicorn_log_config
 from track_id.present import present_set
 from track_id.scan import build_tracklist, identify_moment
 from track_id.timestamps import format_timestamp
+from track_id.widget import CARD_HTML, CARD_URI, card_csp_domains
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,8 @@ INSTRUCTIONS = """
 This server identifies music inside a SoundCloud track or a DJ mix uploaded as one audio file.
 
 How to answer the user:
-- Paste `reply` exactly. Do not wrap it in a code block and do not add a preamble.
+- A card may render beside your message. Still paste `reply` exactly, with no
+  code block and no preamble, so a client without the card still answers.
 - `reply` is markdown: the cover image when one was found, the song title linked
   to Spotify (otherwise YouTube, otherwise a Google search), then the artist and
   time on one line. A scan is one block per song.
@@ -69,6 +72,14 @@ Workflow:
 Only SoundCloud URLs are accepted. Do not send other links.
 """.strip()
 
+
+class _CardApps(Apps):
+    """Advertise the HTML MIME type Claude needs before it will render a card."""
+
+    def settings(self) -> dict[str, Any]:
+        return {"mimeTypes": [APP_MIME_TYPE]}
+
+
 _settings: Settings | None = None
 
 
@@ -87,20 +98,30 @@ def build_server(settings: Settings) -> MCPServer:
     """Register the tools and the health check. Does not bind a port."""
 
     activate(settings)
+    apps = _CardApps()
+    for tool in (get_set_info, identify_track, scan_tracklist):
+        apps.tool(resource_uri=CARD_URI)(tool)
+    apps.add_html_resource(
+        CARD_URI,
+        CARD_HTML,
+        name="Track card",
+        title="Track card",
+        description="Cover, title, and listen link for a recognition result.",
+        csp=ResourceCsp(resource_domains=card_csp_domains()),
+        prefers_border=False,
+    )
     mcp = MCPServer(
         name="soundcloud-track-id",
         title="SoundCloud Track ID",
         instructions=INSTRUCTIONS,
         version=__version__,
+        extensions=[apps],
     )
 
     @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def healthz(_request: Request) -> Response:
         return PlainTextResponse("ok")
 
-    mcp.tool()(get_set_info)
-    mcp.tool()(identify_track)
-    mcp.tool()(scan_tracklist)
     return mcp
 
 

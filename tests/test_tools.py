@@ -138,7 +138,7 @@ async def test_in_process_client_lists_tools_with_useful_descriptions() -> None:
     assert "reply" in by_name["identify_track"]
     assert "reply" in by_name["scan_tracklist"]
     assert "reply" in by_name["get_set_info"]
-    assert "Paste `reply` exactly" in INSTRUCTIONS
+    assert "paste `reply` exactly" in INSTRUCTIONS
     assert "check the description" in INSTRUCTIONS.lower() or "description" in INSTRUCTIONS.lower()
 
 

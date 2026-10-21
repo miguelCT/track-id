@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; }
+  body {
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    color: #f8f7fb;
+  }
+  #root { display: grid; gap: 12px; }
+  article {
+    display: flex;
+    gap: 14px;
+    min-height: 148px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 18px;
+    background: linear-gradient(145deg, #2b2639, #1c1926);
+  }
+  .art {
+    position: relative;
+    flex: 0 0 116px;
+    border: 0;
+    padding: 0;
+    background: #241f30;
+    cursor: pointer;
+  }
+  .art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .mark {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(13, 11, 20, 0.72);
+    color: white;
+    line-height: 28px;
+    text-align: center;
+  }
+  .body { min-width: 0; flex: 1; padding: 16px 16px 14px 0; }
+  .time {
+    color: #c7a8ff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .title, .listen, .more {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .title {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    overflow: hidden;
+    color: white;
+    font-size: 18px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .artist { margin-top: 3px; color: #b5afc2; font-size: 14px; }
+  .listen {
+    margin-top: 12px;
+    color: #bfe98e;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .more {
+    display: block;
+    margin-top: 10px;
+    color: #aaa4b8;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .extra {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #aaa5b6;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .extra.open { display: grid; gap: 6px; }
+  .plain { padding: 18px; }
+  .plain .body { padding: 0; }
+  .plain .title { white-space: normal; }
+  .note { margin: 8px 0 0; color: #aaa5ba; font-size: 14px; line-height: 1.45; }
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font: inherit;
+  }
+</style>
+</head>
+<body>
+<main id="root"></main>
+<script>
+(function () {
+  var nextId = 1;
+  var root = document.getElementById("root");
+
+  function post(message) {
+    window.parent.postMessage(message, "*");
+  }
+
+  function request(method, params) {
+    var id = nextId++;
+    return new Promise(function (resolve) {
+      function onMessage(event) {
+        var data = event.data;
+        if (!data || data.id !== id) return;
+        window.removeEventListener("message", onMessage);
+        resolve(data.result || {});
+      }
+      window.addEventListener("message", onMessage);
+      post({ jsonrpc: "2.0", id: id, method: method, params: params });
+    });
+  }
+
+  function notify(method, params) {
+    post({ jsonrpc: "2.0", method: method, params: params || {} });
+  }
+
+  function reportSize() {
+    notify("ui/notifications/size-changed", {
+      width: Math.ceil(document.documentElement.scrollWidth),
+      height: Math.ceil(document.documentElement.scrollHeight)
+    });
+  }
+
+  function text(value) {
+    return value == null ? "" : String(value).trim();
+  }
+
+  function httpsUrl(value) {
+    var url = text(value);
+    if (url.indexOf("https://") !== 0) return "";
+    if (/[\s()<>"'\\]/.test(url)) return "";
+    return url;
+  }
+
+  function listenLabel(url) {
+    if (url.indexOf("open.spotify.com") !== -1) return "Listen on Spotify";
+    if (url.indexOf("youtube.com") !== -1 || url.indexOf("youtu.be") !== -1) {
+      return "Listen on YouTube";
+    }
+    if (url.indexOf("soundcloud.com") !== -1) return "Open on SoundCloud";
+    return "Search";
+  }
+
+  function openLink(url) {
+    if (!url) return;
+    request("ui/open-link", { url: url });
+  }
+
+  function button(className, label, url) {
+    var node = document.createElement("button");
+    node.className = className;
+    node.type = "button";
+    node.textContent = label;
+    if (url) node.addEventListener("click", function () { openLink(url); });
+    return node;
+  }
+
+  function row(label, value) {
+    if (!text(value)) return null;
+    var line = document.createElement("div");
+    var name = document.createElement("b");
+    name.textContent = label + " ";
+    line.appendChild(name);
+    line.appendChild(document.createTextNode(text(value)));
+    return line;
+  }
+
+  function details(rows, preText) {
+    var present = rows.filter(Boolean);
+    if (!present.length && !text(preText)) return null;
+    var control = button("more", "Details");
+    var extra = document.createElement("div");
+    extra.className = "extra";
+    present.forEach(function (line) { extra.appendChild(line); });
+    if (text(preText)) {
+      var pre = document.createElement("pre");
+      pre.textContent = text(preText);
+      extra.appendChild(pre);
+    }
+    control.addEventListener("click", function () {
+      var open = extra.classList.toggle("open");
+      control.textContent = open ? "Hide details" : "Details";
+      reportSize();
+    });
+    return { control: control, extra: extra };
+  }
+
+  function card(options) {
+    var article = document.createElement("article");
+    var cover = httpsUrl(options.cover);
+    var link = httpsUrl(options.link);
+    if (cover) {
+      var art = document.createElement("button");
+      art.className = "art";
+      art.type = "button";
+      art.setAttribute("aria-label", "Open " + text(options.title));
+      var image = document.createElement("img");
+      image.alt = "";
+      image.src = cover;
+      var mark = document.createElement("span");
+      mark.className = "mark";
+      mark.textContent = "↗";
+      art.appendChild(image);
+      art.appendChild(mark);
+      if (link) art.addEventListener("click", function () { openLink(link); });
+      article.appendChild(art);
+    }
+    var body = document.createElement("div");
+    body.className = "body";
+    if (!cover) article.classList.add("plain");
+    if (options.time) {
+      var time = document.createElement("div");
+      time.className = "time";
+      time.textContent = options.time;
+      body.appendChild(time);
+    }
+    var title = text(options.title) || "Unknown";
+    body.appendChild(button("title", title, link));
+    if (options.subtitle) {
+      var artist = document.createElement("div");
+      artist.className = "artist";
+      artist.textContent = options.subtitle;
+      body.appendChild(artist);
+    }
+    if (options.note) {
+      var note = document.createElement("p");
+      note.className = "note";
+      note.textContent = options.note;
+      body.appendChild(note);
+    }
+    if (link) body.appendChild(button("listen", listenLabel(link), link));
+    var extra = details(options.rows || [], options.pre);
+    if (extra) {
+      body.appendChild(extra.control);
+      body.appendChild(extra.extra);
+    }
+    article.appendChild(body);
+    return article;
+  }
+
+  function payloadOf(params) {
+    if (!params || typeof params !== "object") return null;
+    if (params.structuredContent) return params.structuredContent;
+    if (params.structured_content) return params.structured_content;
+    return params;
+  }
+
+  function render(data) {
+    root.textContent = "";
+    if (!data || typeof data !== "object") {
+      root.appendChild(card({ plain: true, title: "No result" }));
+      return;
+    }
+    if (data.error) {
+      root.appendChild(card({ plain: true, title: "Could not identify", note: text(data.error) }));
+      return;
+    }
+    if (Array.isArray(data.tracks)) {
+      if (!data.tracks.length) {
+        root.appendChild(card({
+          plain: true,
+          title: "No matches",
+          note: data.more_to_scan_from ? "Continue from " + data.more_to_scan_from + "." : ""
+        }));
+      }
+      data.tracks.forEach(function (track) {
+        if (!track || typeof track !== "object") return;
+        root.appendChild(card({
+          cover: track.cover,
+          link: track.link,
+          time: text(track.at),
+          title: text(track.title),
+          subtitle: text(track.artist),
+          rows: [
+            row("Album", track.album),
+            row("Label", track.label),
+            row("Released", track.release_date)
+          ]
+        }));
+      });
+      if (data.tracks.length && data.more_to_scan_from) {
+        var more = document.createElement("div");
+        more.className = "artist";
+        more.textContent = "Continue from " + data.more_to_scan_from + ".";
+        root.appendChild(more);
+      }
+      return;
+    }
+    if (data.match || data.at) {
+      var match = data.match && typeof data.match === "object" ? data.match : null;
+      if (!match || !text(match.title)) {
+        root.appendChild(card({
+          plain: true,
+          time: text(data.at),
+          title: "No match",
+          note: "This moment may be a blend, edit, or unreleased track.",
+          rows: [row("Suggestion", data.hint), row("Set", data.set)]
+        }));
+        return;
+      }
+      var subtitle = text(match.artist);
+      root.appendChild(card({
+        cover: match.cover,
+        link: match.link,
+        time: text(data.at),
+        title: text(match.title),
+        subtitle: subtitle,
+        rows: [
+          row("Album", match.album),
+          row("Label", match.label),
+          row("Released", match.release_date),
+          row("Set", data.set),
+          row("Recognized by", data.backend),
+          row("Note", Number(data.offset_seconds) > 0
+            ? "Matched " + data.offset_seconds + "s after the time you asked about."
+            : "")
+        ]
+      }));
+      return;
+    }
+    if (data.title) {
+      var bits = [text(data.uploader), text(data.duration)].filter(Boolean);
+      if (data.preview_only) bits.push("preview only");
+      root.appendChild(card({
+        plain: true,
+        link: data.permalink,
+        title: text(data.title),
+        subtitle: bits.join(" · "),
+        rows: [row("Note", data.note)],
+        pre: data.description
+      }));
+      return;
+    }
+    root.appendChild(card({ plain: true, title: "No result" }));
+  }
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (!data || data.method !== "ui/notifications/tool-result") return;
+    render(payloadOf(data.params));
+    reportSize();
+  });
+
+  request("ui/initialize", {
+    appCapabilities: { availableDisplayModes: ["inline"] },
+    appInfo: { name: "SoundCloud Track ID", version: "0.1.0" },
+    protocolVersion: "2026-01-26"
+  }).then(function () {
+    notify("ui/notifications/initialized");
+    reportSize();
+  });
+})();
+</script>
+</body>
+</html>

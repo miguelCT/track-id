@@ -18,6 +18,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+track_id = ["card.html"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

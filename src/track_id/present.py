@@ -1,8 +1,7 @@
-"""Markdown the chat client can paste as the whole answer.
+"""Markdown the chat client can paste when it does not render the card widget.
 
-Claude does not render a custom card. It does render a markdown image, a linked
-title, and one following line. `reply` is that message. Album, label, release
-date, and scan stats stay on the tool payload for when the user asks.
+`reply` is a cover image, a linked title, and one line with the artist and time.
+Album, label, release date, and scan stats stay on the tool payload.
 """
 
 from __future__ import annotations
